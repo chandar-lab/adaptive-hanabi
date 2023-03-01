@@ -105,6 +105,9 @@ def parse_args():
     parser.add_argument("--act_device", type=str, default="cuda:1")
     parser.add_argument("--actor_sync_freq", type=int, default=10)
 
+    # wandb setting
+    parser.add_argument("--wandb_mode", type=str, default="online")
+
     args = parser.parse_args()
     assert args.method in ["iql"]
     assert args.mode in ["br", "klr"]
@@ -152,8 +155,8 @@ if __name__ == "__main__":
     args = parse_args()
     model = args.load_model.split("/")[-2]
     partner = [coop.split("/")[-2] for coop in args.coop_agents]
-    wandb.init(project="obl-adapt", name=f"{model}-{partner}", config=args, mode="online",
-               dir="/home/mila/n/nekoeiha/scratch/hanabi_exp/")
+    wandb.init(project="obl-adapt", name=f"{model}-{partner}", config=args, mode=args.wandb_mode,
+               dir=os.path.join(os.environ.get("SCRATCH", "/home/mila/s/sriyash.poddar/scratch"), "hanabi_exp"))
 
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
@@ -202,10 +205,8 @@ if __name__ == "__main__":
     else:
         net = args.net
 
-    if "method" in cfg.keys():
-        method = cfg["method"]
-    else:
-        method = args.method
+    # Adapt with IQL only
+    method = args.method
     print(method)
     agent = r2d2.R2D2Agent(
         (method == "vdn"),
@@ -263,7 +264,7 @@ if __name__ == "__main__":
         coop_ckpts = []
         for coop_pth in args.coop_agents:
             coop_ckpts.append(common_utils.ModelCkpt(coop_pth))
-        coop_agents = utils.load_coop_agents(coop_ckpts, overwrites={"boltzmann_act": False}, device=args.train_device)
+        coop_agents = utils.load_coop_agents(coop_ckpts, overwrites={"vdn": False, "boltzmann_act": False}, device=args.train_device)
     # import ipdb; ipdb.set_trace()
     eval_seed = (9917 + 0 * 999999) % 7777777
     score, perfect = _evaluate(args, eval_agent, coop_agents, coop_ckpts, eval_seed)

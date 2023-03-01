@@ -179,7 +179,7 @@ class LSTMNet(torch.jit.ScriptModule):
         publ_s: torch.Tensor,
         hid: Dict[str, torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        assert priv_s.dim() == 2
+        assert priv_s.dim() == 2, f"dim should be 2, [batch, dim], get {priv_s.dim()}"
 
         bsize = hid["h0"].size(0)
         assert hid["h0"].dim() == 4
