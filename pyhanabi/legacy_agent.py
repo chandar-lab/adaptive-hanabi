@@ -18,15 +18,15 @@ import utils
 
 
 class LegacyNet(torch.jit.ScriptModule):
-    __constants__ = ["hid_dim", "out_dim", "num_lstm_layer"]
+    __constants__ = ["hid_dim", "out_dim", "num_ff_layer", "num_lstm_layer"]
 
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_ff_layer, skip_connect):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer=2, skip_connect=True):
         super().__init__()
         self.in_dim = in_dim
         self.hid_dim = hid_dim
         self.out_dim = out_dim
         self.num_ff_layer = num_ff_layer
-        self.num_lstm_layer = 2
+        self.num_lstm_layer = num_lstm_layer
         self.skip_connect = skip_connect
 
         ff_layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
@@ -71,10 +71,10 @@ class LegacyNet(torch.jit.ScriptModule):
 class LegacyAgent(torch.jit.ScriptModule):
     __constants__ = []
 
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_ff_layer, skip_connect):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer, skip_connect):
         super().__init__()
         self.online_net = LegacyNet(
-            device, in_dim, hid_dim, out_dim, num_ff_layer, skip_connect
+            device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer, skip_connect,
         ).to(device)
 
     @torch.jit.script_method
@@ -90,6 +90,7 @@ class LegacyAgent(torch.jit.ScriptModule):
             self.online_net.hid_dim,
             self.online_net.out_dim,
             self.online_net.num_ff_layer,
+            self.online_net.num_lstm_layer,
             self.onlone_net.skip_connect,
         )
         cloned.load_state_dict(self.state_dict())
@@ -186,6 +187,7 @@ def load_legacy_agent(weight_file):
         hid_dim,
         out_dim,
         config["num_ff_layer"],
+        config["num_lstm_layer"],
         config["skip_connect"],
     )
     agent.online_net.load_state_dict(state_dict)

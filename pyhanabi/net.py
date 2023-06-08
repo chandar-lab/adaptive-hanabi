@@ -48,7 +48,7 @@ def cross_entropy(net, lstm_o, target_p, hand_slot_mask, seq_len):
 
 
 class FFWDNet(torch.jit.ScriptModule):
-    def __init__(self, in_dim, hid_dim, out_dim):
+    def __init__(self, in_dim, hid_dim, out_dim, num_ff_layer=3):
         super().__init__()
         # for backward compatibility
         if isinstance(in_dim, int):
@@ -63,15 +63,13 @@ class FFWDNet(torch.jit.ScriptModule):
 
         self.hid_dim = hid_dim
         self.out_dim = out_dim
+        self.num_ff_layer = num_ff_layer
 
-        self.net = nn.Sequential(
-            nn.Linear(self.priv_in_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        ff_layers = [nn.Linear(self.priv_in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_ff_layer):
+            ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            ff_layers.append(nn.ReLU())
+        self.net = nn.Sequential(*ff_layers)
 
         self.fc_v = nn.Linear(self.hid_dim, 1)
         self.fc_a = nn.Linear(self.hid_dim, self.out_dim)
@@ -127,9 +125,9 @@ class FFWDNet(torch.jit.ScriptModule):
 
 
 class LSTMNet(torch.jit.ScriptModule):
-    __constants__ = ["hid_dim", "out_dim", "num_lstm_layer"]
+    __constants__ = ["hid_dim", "out_dim", "num_ff_layer", "num_lstm_layer"]
 
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer):
         super().__init__()
         # for backward compatibility
         if isinstance(in_dim, int):
@@ -144,7 +142,7 @@ class LSTMNet(torch.jit.ScriptModule):
 
         self.hid_dim = hid_dim
         self.out_dim = out_dim
-        self.num_ff_layer = 1
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
 
         ff_layers = [nn.Linear(self.priv_in_dim, self.hid_dim), nn.ReLU()]
@@ -261,9 +259,11 @@ class LSTMNet(torch.jit.ScriptModule):
 
 
 class PublicLSTMNet(torch.jit.ScriptModule):
-    __constants__ = ["hid_dim", "out_dim", "num_lstm_layer"]
+    __constants__ = ["hid_dim", "out_dim", "num_ff_layer", "num_lstm_layer"]
 
-    def __init__(self, device, in_dim, hid_dim, out_dim, num_lstm_layer):
+    def __init__(self, device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer,
+        num_priv_ff_layer=3,
+    ):
         super().__init__()
         # for backward compatibility
         if isinstance(in_dim, int):
@@ -278,17 +278,15 @@ class PublicLSTMNet(torch.jit.ScriptModule):
 
         self.hid_dim = hid_dim
         self.out_dim = out_dim
-        self.num_ff_layer = 1
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
+        self.num_priv_ff_layer = num_priv_ff_layer
 
-        self.priv_net = nn.Sequential(
-            nn.Linear(self.priv_in_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        priv_ff_layers = [nn.Linear(self.priv_in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_priv_ff_layer):
+            priv_ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            priv_ff_layers.append(nn.ReLU())
+        self.priv_net = nn.Sequential(*priv_ff_layers)
 
         ff_layers = [nn.Linear(self.publ_in_dim, self.hid_dim), nn.ReLU()]
         for i in range(1, self.num_ff_layer):

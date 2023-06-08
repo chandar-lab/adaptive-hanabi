@@ -39,6 +39,7 @@ def load_supervised_agent(weight_file, device):
             cfg["publ_in_dim"],
             cfg["rnn_hid_size"],
             cfg["num_action"],
+            cfg["ff_layers"],
             cfg["lstm_layers"],
             cfg["net"],
             cfg["dropout"],
@@ -49,7 +50,7 @@ def load_supervised_agent(weight_file, device):
     if cfg.get("net", "publ-lstm") == "lstm":
         priv_in = state_dict["net.net.0.weight"].size(1)
         out, hid = state_dict["net.out_layer.weight"].size()
-        agent = SupervisedAgent(device, priv_in, 0, hid, out, 1, "lstm", 0.0)
+        agent = SupervisedAgent(device, priv_in, 0, hid, out, 1, 1, "lstm", 0.0)
         agent.load_state_dict(state_dict)
         return agent
 
@@ -68,7 +69,7 @@ def load_supervised_agent(weight_file, device):
         state_dict.pop("net.final_ff.bias")
 
     out, hid = state_dict["net.out_layer.weight"].size()
-    agent = SupervisedAgent(device, priv_in, publ_in, hid, out, 1, "publ-lstm", 0.0)
+    agent = SupervisedAgent(device, priv_in, publ_in, hid, out, 1, 1, "publ-lstm", 0.0)
     agent.load_state_dict(state_dict)
     return agent
 
@@ -105,6 +106,7 @@ def parse_hydra_dict(lines):
         "shuffle_color": conf.env.shuffle_color,
         "hide_action": conf.env.hide_action,
         "rnn_hid_dim": conf.agent.params.hid_dim,
+        "num_ff_layer": conf.agent.params.num_ff_layer,
         "num_lstm_layer": conf.agent.params.num_lstm_layer,
         "boltzmann_act": conf.agent.params.boltzmann_act,
         "multi_step": conf.agent.params.multi_step,
@@ -177,6 +179,7 @@ def load_agent(weight_file, overwrite):
         "in_dim": game.feature_size(cfg["sad"]),
         "hid_dim": cfg["hid_dim"] if "hid_dim" in cfg else cfg["rnn_hid_dim"],
         "out_dim": game.num_action(),
+        "num_ff_layer": cfg.get("num_ff_layer", overwrite.get("num_ff_layer", 1)),
         "num_lstm_layer": cfg.get("num_lstm_layer", overwrite.get("num_lstm_layer", 2)),
         "boltzmann_act": overwrite.get(
             "boltzmann_act", cfg.get("boltzmann_act", False)

@@ -15,20 +15,21 @@ from typing import Dict, Optional, Tuple
 
 
 class LSTMNet(torch.jit.ScriptModule):
-    def __init__(self, device, priv_in_dim, hid_dim, out_dim, num_lstm_layer, dropout):
+    def __init__(self, device, priv_in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer, dropout):
         super().__init__()
         self.priv_in_dim = priv_in_dim
         self.hid_dim = hid_dim
         self.out_dim = out_dim
 
-        self.num_ff_layer = 1
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
         self.dropout = nn.Dropout(dropout)
 
-        self.net = nn.Sequential(
-            nn.Linear(self.priv_in_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        ff_layers = [nn.Linear(self.priv_in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_ff_layer):
+            ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            ff_layers.append(nn.ReLU())
+        self.net = nn.Sequential(*ff_layers)
         self.lstm = nn.LSTM(
             self.hid_dim,
             self.hid_dim,
@@ -65,8 +66,10 @@ class PublicLSTMNet(torch.jit.ScriptModule):
         publ_in_dim,
         hid_dim,
         out_dim,
+        num_ff_layer,
         num_lstm_layer,
         dropout,
+        num_priv_ff_layer=3,
     ):
         super().__init__()
         self.priv_in_dim = priv_in_dim
@@ -74,18 +77,16 @@ class PublicLSTMNet(torch.jit.ScriptModule):
 
         self.hid_dim = hid_dim
         self.out_dim = out_dim
-        self.num_ff_layer = 1
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
+        self.num_priv_ff_layer = num_priv_ff_layer
         self.dropout = nn.Dropout(dropout)
 
-        self.priv_net = nn.Sequential(
-            nn.Linear(self.priv_in_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        priv_ff_layers = [nn.Linear(self.priv_in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_priv_ff_layer):
+            priv_ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            priv_ff_layers.append(nn.ReLU())
+        self.priv_net = nn.Sequential(*priv_ff_layers)
 
         ff_layers = [nn.Linear(self.publ_in_dim, self.hid_dim), nn.ReLU()]
         for i in range(1, self.num_ff_layer):
@@ -125,7 +126,7 @@ class PublicLSTMNet(torch.jit.ScriptModule):
 
 
 class SupervisedAgent(torch.jit.ScriptModule):
-    __constants__ = ["hid_dim", "out_dim", "num_lstm_layer"]
+    __constants__ = ["hid_dim", "out_dim", "num_ff_layer", "num_lstm_layer"]
 
     def __init__(
         self,
@@ -134,6 +135,7 @@ class SupervisedAgent(torch.jit.ScriptModule):
         publ_in_dim,
         hid_dim,
         out_dim,
+        num_ff_layer,
         num_lstm_layer,
         net,
         dropout,
@@ -146,6 +148,7 @@ class SupervisedAgent(torch.jit.ScriptModule):
                 priv_in_dim,
                 hid_dim,
                 out_dim,
+                num_ff_layer,
                 num_lstm_layer,
                 dropout,
             )
@@ -156,6 +159,7 @@ class SupervisedAgent(torch.jit.ScriptModule):
                 publ_in_dim,
                 hid_dim,
                 out_dim,
+                num_ff_layer,
                 num_lstm_layer,
                 dropout,
             )
@@ -165,6 +169,7 @@ class SupervisedAgent(torch.jit.ScriptModule):
         self.publ_in_dim = publ_in_dim
         self.hid_dim = hid_dim
         self.out_dim = out_dim
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
         self.dropout = dropout
         self.to(device)
@@ -176,6 +181,7 @@ class SupervisedAgent(torch.jit.ScriptModule):
             self.publ_in_dim,
             self.hid_dim,
             self.out_dim,
+            self.num_ff_layer,
             self.num_lstm_layer,
             self.net_type,
             self.dropout,

@@ -68,6 +68,7 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
     parser.add_argument("--eps", type=float, default=1.5e-5, help="Adam epsilon")
     parser.add_argument("--grad_clip", type=float, default=5, help="max grad norm")
+    parser.add_argument("--num_ff_layer", type=int, default=1)
     parser.add_argument("--num_lstm_layer", type=int, default=2)
     parser.add_argument("--rnn_hid_dim", type=int, default=512)
     parser.add_argument(
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     args = parse_args()
     model = args.load_model.split("/")[-2]
     partner = [coop.split("/")[-2] for coop in args.coop_agents]
-    wandb.init(project="obl-adapt", name=f"{model}-{partner}", config=args, mode=args.wandb_mode,
+    wandb.init(project="obl-adapt-1", name=f"{model}-{partner}", config=args, mode=args.wandb_mode,
                dir=os.path.join(os.environ.get("SCRATCH", "/home/mila/s/sriyash.poddar/scratch"), "hanabi_exp"))
 
     if not os.path.exists(args.save_dir):
@@ -200,6 +201,12 @@ if __name__ == "__main__":
     else:
         num_lstm_layer = args.num_lstm_layer
 
+    if "num_ff_layer" in cfg.keys():
+        num_ff_layer = cfg["num_ff_layer"]
+    else:
+        num_ff_layer = args.num_ff_layer
+
+
     if "net" in cfg.keys():
         net = cfg["net"]
     else:
@@ -218,6 +225,7 @@ if __name__ == "__main__":
         args.rnn_hid_dim,
         games[0].num_action(),
         net,
+        num_ff_layer,
         num_lstm_layer,
         args.boltzmann_act,
         False,  # uniform priority
