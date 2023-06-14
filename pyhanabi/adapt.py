@@ -151,12 +151,57 @@ def _evaluate(args, eval_agent, coop_agents, coop_ckpts, eval_seed):
 
     return score, perfect
 
+
+def _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed):
+    # self-play
+    if coop_agents is None:
+        eval_agents = [eval_agent for _ in range(args.num_player)]
+        score, perfect, *_ = evaluate(
+            eval_agents,
+            1000,
+            eval_seed,
+            args.eval_bomb,
+            0,  # explore eps
+            args.sad,
+            args.hide_action,
+        )
+        return [score,], [perfect,]
+
+    # cross-play
+    scores, perfects = [], []
+    coop_eval_agents = utils.load_coop_agents(
+        coop_ckpts,
+        overwrites={"vdn": False, "boltzmann_act": False},
+        device=args.train_device,
+    )
+    eval_idxs = list(range(len(coop_eval_agents)))
+    for idx in eval_idxs:
+        eval_agents = [eval_agent]
+        eval_agents.append(coop_eval_agents[idx])
+
+        score, perfect, *_ = evaluate(
+            eval_agents,
+            1000,
+            eval_seed,
+            args.eval_bomb,
+            0,  # explore eps
+            args.sad,
+            args.hide_action,
+        )
+        scores.append(score)
+        perfects.append(perfect)
+
+    return scores, perfects
+
+
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     args = parse_args()
-    model = args.load_model.split("/")[-2]
-    partner = [coop.split("/")[-2] for coop in args.coop_agents]
-    wandb.init(project="obl-adapt-1", name=f"{model}-{partner}", config=args, mode=args.wandb_mode,
+    model = (args.load_model.split("/")[-2]
+             if args.load_model and args.load_model != "None"
+             else "scratch")
+    partners = [coop.split("/")[-2] for coop in args.coop_agents]
+    wandb.init(project="obl-adapt-1", name=f"{model}-{'-'.join(partners)}", config=args, mode=args.wandb_mode,
                dir=os.path.join(os.environ.get("SCRATCH", "/home/mila/s/sriyash.poddar/scratch"), "hanabi_exp"))
 
     if not os.path.exists(args.save_dir):
@@ -194,23 +239,21 @@ if __name__ == "__main__":
         args.train_bomb,
         args.max_len,
     )
-    cfg = utils.get_train_config(args.load_model)
-    print(cfg)
-    if "num_lstm_layer" in cfg.keys():
-        num_lstm_layer = cfg["num_lstm_layer"]
-    else:
-        num_lstm_layer = args.num_lstm_layer
 
-    if "num_ff_layer" in cfg.keys():
-        num_ff_layer = cfg["num_ff_layer"]
-    else:
-        num_ff_layer = args.num_ff_layer
+    num_lstm_layer = args.num_lstm_layer
+    num_ff_layer = args.num_ff_layer
+    net = args.net
+    if args.load_model and args.load_model != "None":
+        cfg = utils.get_train_config(args.load_model)
+        print(cfg)
+        if "num_lstm_layer" in cfg.keys():
+            num_lstm_layer = cfg["num_lstm_layer"]
 
+        if "num_ff_layer" in cfg.keys():
+            num_ff_layer = cfg["num_ff_layer"]
 
-    if "net" in cfg.keys():
-        net = cfg["net"]
-    else:
-        net = args.net
+        if "net" in cfg.keys():
+            net = cfg["net"]
 
     # Adapt with IQL only
     method = args.method
@@ -275,13 +318,17 @@ if __name__ == "__main__":
         coop_agents = utils.load_coop_agents(coop_ckpts, overwrites={"vdn": False, "boltzmann_act": False}, device=args.train_device)
     # import ipdb; ipdb.set_trace()
     eval_seed = (9917 + 0 * 999999) % 7777777
-    score, perfect = _evaluate(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
-    print(
-        "epoch %d, eval score: %.4f, perfect: %.2f, model saved: %s"
-        % (0, score, perfect * 100, False)
-    )
-    wandb.log({"epoch": 0, "score": score, "perfect": perfect * 100,
+    scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
+    wandb.log({"epoch": 0, "score": np.mean(scores),
+               "perfect": np.mean(perfects) * 100,
                "num_samples": 0, "num_train": 0})
+    for partner,score,perfect in zip(partners,scores, perfects):
+        print(
+            f"partner {partner}: epoch {0}, eval score: {score:.4f},",
+            f"perfect: {(perfect*100):.2f}, model saved: {False}"
+        )
+        wandb.log({f"score-{partner}": score,
+                   f"perfect-{partner}": perfect * 100})
 
     act_group_args = {
         "devices": args.act_device,
@@ -407,20 +454,27 @@ if __name__ == "__main__":
         eval_seed = (9917 + epoch * 999999) % 7777777
         eval_agent.load_state_dict(agent.state_dict())
 
-        score, perfect = _evaluate(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
+        if epoch > 0 and epoch % 10 == 0:
+            scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
 
         force_save_name = None
         if epoch > 0 and epoch % 100 == 0:
             force_save_name = "model_epoch%d" % epoch
-        model_saved = saver.save(
-            None, agent.online_net.state_dict(), score, force_save_name=force_save_name
-        )
-        print(
-            "epoch %d, eval score: %.4f, perfect: %.2f, model saved: %s"
-            % (epoch, score, perfect * 100, model_saved)
-        )
-        wandb.log({"epoch": epoch, "score": score, "perfect": perfect * 100,
-                   "num_samples": tachometer.num_buffer, "num_train": tachometer.num_train})
+            model_saved = saver.save(
+                None, agent.online_net.state_dict(), np.mean(scores), force_save_name=force_save_name
+            )
+        if epoch > 0 and epoch % 10 == 0:
+            wandb.log({"epoch": epoch, "score": np.mean(scores),
+                       "perfect": np.mean(perfects) * 100,
+                       "num_samples": tachometer.num_buffer,
+                       "num_train": tachometer.num_train})
+            for partner,score,perfect in zip(partners,scores,perfects):
+                print(
+                    f"partner {partner}: epoch {epoch}, eval score: {score:.4f},",
+                    f"perfect: {(perfect*100):.2f}, model saved: {model_saved}"
+                )
+                wandb.log({f"score-{partner}": score,
+                           f"perfect-{partner}": perfect * 100})
 
         if clone_bot is not None:
             score, perfect, *_ = evaluate(
