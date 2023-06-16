@@ -457,6 +457,7 @@ if __name__ == "__main__":
         if epoch > 0 and epoch % 10 == 0:
             scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
 
+        model_saved = False
         force_save_name = None
         if epoch > 0 and epoch % 100 == 0:
             force_save_name = "model_epoch%d" % epoch

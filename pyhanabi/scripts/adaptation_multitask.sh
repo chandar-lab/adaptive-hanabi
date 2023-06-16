@@ -2,7 +2,7 @@
 
 seeds=(101) # 102 103) # 6 7 8 9
 # pretrained learner
-agent1s=("iql-op0-lstmlayers1-seed100/model_epoch1000.pthw" "iql-op1-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_a/model0.pthw")
+agent1s=("iql-op0-lstmlayers1-seed100/model_epoch1000.pthw") # "iql-op1-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_a/model0.pthw")
 # eval partner
 # medium diversity (collas main results)
 #agent2s=("iql-op0-lstmlayers2-seed101/model_epoch1000.pthw" "iql-op1-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers2-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d/model0.pthw")
@@ -11,8 +11,9 @@ agent1s=("iql-op0-lstmlayers1-seed100/model_epoch1000.pthw" "iql-op1-lstmlayers1
 # high diversity
 # agent2s=("iql-op1-lstmlayers2-seed101/model_epoch1000.pthw" "icml_OBL/icml_OBL1/OFF_BELIEF1_SHUFFLE_COLOR0_BZA1_BELIEF_a/model0.pthw") # iql-op0-lstmlayers2-seed101,vdn-op1-lstmlayers1-seed100,vdn-op1-lstmlayers2-seed100,icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d
 
-# multi-task train partner
-agent2s=("iql-sad1-op0-fflayers2-lstmlayers2-seed100/model_epoch1000.pthw" "iql-sad1-op1-fflayers2-lstmlayers1-seed100/model_epoch1000.pthw" "iql-sad1-op1-fflayers2-lstmlayers2-seed100//model_epoch1000.pthw" "vdn-sad1-op0-fflayers2-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d/model0.pthw")
+# multi-task train partner. some taken from unused agent1s
+agent2s=("iql-op1-lstmlayers1-seed101/model_epoch1000.pthw" "iql-op1-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL4/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_a/model0.pthw")
+# multi-task pool missing ckpt:iql-op0-lstmlayers2-seed100,vdn-op0-lstmlayers1-seed101,vdn-op0-lstmlayers1-seed102,vdn-op0-lstmlayers2-seed101,vdn-op0-lstmlayers2-seed102,vdn-op1-lstmlayers1-seed101,vdn-op1-lstmlayers1-seed102,vdn-op1-lstmlayers2-seed102,
 
 # debug below
 # agent1s=()
@@ -57,7 +58,7 @@ echo "export CUDNN_LIBRARY_PATH=/cvmfs/ai.mila.quebec/apps/arch/common/cudnn/10.
 echo "export OMP_NUM_THREADS=1" >> temprun.sh
 
 echo "python ${SCRATCH}/adaptive-hanabi/pyhanabi/adapt.py \
-  --save_dir ${SCRATCH}/hanabi_exps/test_adaptation/seed${seed}-${agent1}-${agent2_all} \
+  --save_dir ${SCRATCH}/hanabi_exps/test_adaptation/seed${seed}-${agent1} \
   --load_model ${SCRATCH}/hanabi_exps/test_cross_play/${agent1} \
   --coop_agents ${agent2_all} \
   --num_thread 10 \
