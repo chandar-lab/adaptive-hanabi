@@ -108,6 +108,7 @@ def parse_args():
 
     # wandb setting
     parser.add_argument("--wandb_mode", type=str, default="online")
+    parser.add_argument("--wandb_log_freq", type=int, default=10)
 
     args = parser.parse_args()
     assert args.method in ["iql"]
@@ -120,7 +121,7 @@ def _evaluate(args, eval_agent, coop_agents, coop_ckpts, eval_seed):
     if coop_agents is not None:
         coop_eval_agents = utils.load_coop_agents(
             coop_ckpts,
-            overwrites={"vdn": False, "boltzmann_act": False},
+            overwrites={"vdn": False, "boltzmann_act": False, "sad": False},
             device=args.train_device,
         )
         eval_idxs = np.random.choice(
@@ -171,7 +172,7 @@ def _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed):
     scores, perfects = [], []
     coop_eval_agents = utils.load_coop_agents(
         coop_ckpts,
-        overwrites={"vdn": False, "boltzmann_act": False},
+        overwrites={"vdn": False, "boltzmann_act": False, "sad": False},
         device=args.train_device,
     )
     eval_idxs = list(range(len(coop_eval_agents)))
@@ -315,7 +316,11 @@ if __name__ == "__main__":
         coop_ckpts = []
         for coop_pth in args.coop_agents:
             coop_ckpts.append(common_utils.ModelCkpt(coop_pth))
-        coop_agents = utils.load_coop_agents(coop_ckpts, overwrites={"vdn": False, "boltzmann_act": False}, device=args.train_device)
+        coop_agents = utils.load_coop_agents(
+            coop_ckpts,
+            overwrites={"vdn": False, "boltzmann_act": False, "sad": False},
+            device=args.train_device,
+        )
     # import ipdb; ipdb.set_trace()
     eval_seed = (9917 + 0 * 999999) % 7777777
     scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
@@ -454,7 +459,7 @@ if __name__ == "__main__":
         eval_seed = (9917 + epoch * 999999) % 7777777
         eval_agent.load_state_dict(agent.state_dict())
 
-        if epoch > 0 and epoch % 10 == 0:
+        if epoch > 0 and epoch % args.wandb_log_freq == 0:
             scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
 
         model_saved = False
@@ -464,7 +469,7 @@ if __name__ == "__main__":
             model_saved = saver.save(
                 None, agent.online_net.state_dict(), np.mean(scores), force_save_name=force_save_name
             )
-        if epoch > 0 and epoch % 10 == 0:
+        if epoch > 0 and epoch % args.wandb_log_freq == 0:
             wandb.log({"epoch": epoch, "score": np.mean(scores),
                        "perfect": np.mean(perfects) * 100,
                        "num_samples": tachometer.num_buffer,

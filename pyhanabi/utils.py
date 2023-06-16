@@ -176,7 +176,7 @@ def load_agent(weight_file, overwrite):
         "gamma": overwrite.get("gamma", cfg["gamma"]),
         "eta": 0.9,
         "device": overwrite["device"],
-        "in_dim": game.feature_size(cfg["sad"]),
+        "in_dim": game.feature_size(overwrite.get("sad", cfg["sad"])),
         "hid_dim": cfg["hid_dim"] if "hid_dim" in cfg else cfg["rnn_hid_dim"],
         "out_dim": game.num_action(),
         "num_ff_layer": cfg.get("num_ff_layer", overwrite.get("num_ff_layer", 1)),

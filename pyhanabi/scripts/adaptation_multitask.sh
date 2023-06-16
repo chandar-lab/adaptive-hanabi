@@ -13,7 +13,9 @@ agent1s=("iql-op0-lstmlayers1-seed100/model_epoch1000.pthw") # "iql-op1-lstmlaye
 
 # multi-task train partner. some taken from unused agent1s
 agent2s=("iql-op1-lstmlayers1-seed101/model_epoch1000.pthw" "iql-op1-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL4/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_a/model0.pthw")
+agent2s_extra=("iql-sad1-op0-fflayers2-lstmlayers1-seed100/model_epoch1000.pthw" "iql-sad1-op0-fflayers2-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-sad1-op0-fflayers2-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-sad1-op1-fflayers2-lstmlayers2-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL2/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA1_BELIEF_a/model0.pthw")
 # multi-task pool missing ckpt:iql-op0-lstmlayers2-seed100,vdn-op0-lstmlayers1-seed101,vdn-op0-lstmlayers1-seed102,vdn-op0-lstmlayers2-seed101,vdn-op0-lstmlayers2-seed102,vdn-op1-lstmlayers1-seed101,vdn-op1-lstmlayers1-seed102,vdn-op1-lstmlayers2-seed102,
+# fflayer2 ckpt:iql-sad1-op0-fflayers2-lstmlayers1-seed100,iql-sad1-op0-fflayers2-lstmlayers1-seed101,iql-sad1-op0-fflayers2-lstmlayers2-seed100,iql-sad1-op0-fflayers2-lstmlayers2-seed101,iql-sad1-op1-fflayers2-lstmlayers1-seed100,iql-sad1-op1-fflayers2-lstmlayers1-seed101,iql-sad1-op1-fflayers2-lstmlayers2-seed100,iql-sad1-op1-fflayers2-lstmlayers2-seed101,vdn-sad1-op0-fflayers2-lstmlayers1-seed100,vdn-sad1-op0-fflayers2-lstmlayers1-seed101,vdn-sad1-op0-fflayers2-lstmlayers2-seed100,vdn-sad1-op0-fflayers2-lstmlayers2-seed101,vdn-sad1-op1-fflayers2-lstmlayers1-seed100,vdn-sad1-op1-fflayers2-lstmlayers1-seed101,vdn-sad1-op1-fflayers2-lstmlayers2-seed100,vdn-sad1-op1-fflayers2-lstmlayers2-seed101,
 
 # debug below
 # agent1s=()
@@ -24,6 +26,10 @@ num_threads=(5) #10 20 40 80 160
 
 agent2_all=""
 for agent2 in ${agent2s[@]}
+do
+  agent2_all="${agent2_all}${SCRATCH}/hanabi_exps/test_cross_play/${agent2} "
+done
+for agent2 in ${agent2s_extra[@]}
 do
   agent2_all="${agent2_all}${SCRATCH}/hanabi_exps/test_cross_play/${agent2} "
 done
@@ -80,7 +86,8 @@ echo "python ${SCRATCH}/adaptive-hanabi/pyhanabi/adapt.py \
   --num_lstm_layer 2 \
   --multi_step 3 \
   --train_device cuda:0 \
-  --act_device cuda:1" >> temprun.sh
+  --act_device cuda:1 \
+  --wandb_log_freq 10" >> temprun.sh
 
 eval "sbatch temprun.sh"
 rm temprun.sh
