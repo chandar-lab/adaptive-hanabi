@@ -10,7 +10,6 @@ sweep_*
 plot.png
 sweep*.py
 !*ref*.sh
-*.ipynb*
 pyhanabi/tools/bad_player/
 pyhanabi/tools/bad_player_sparta/
 pyhanabi/models/*
@@ -24,3 +23,4 @@ models2/
 models/
 models_bkup.zip
 models_bkup/
+.vscode/

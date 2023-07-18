@@ -31,31 +31,35 @@ class LSTMNet(torch.jit.ScriptModule):
         in_dim,
         hid_dim,
         out_dim,
+        num_ff_layer,
         num_lstm_layer,
         hand_size,
         hide_action,
+        num_priv_ff_layer=3,
     ):
         super().__init__()
         self.in_dim = in_dim
         self.hid_dim = hid_dim
         self.out_dim = out_dim
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
+        self.num_priv_ff_layer = num_priv_ff_layer
         self.hide_action = hide_action
         assert not hide_action
 
         self.priv_in_dim = in_dim - 25 * hand_size
         self.publ_in_dim = in_dim - 2 * 25 * hand_size
 
-        self.priv_net = nn.Sequential(
-            nn.Linear(self.priv_in_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        priv_ff_layers = [nn.Linear(self.priv_in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_priv_ff_layer):
+            priv_ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            priv_ff_layers.append(nn.ReLU())
+        self.priv_net = nn.Sequential(*priv_ff_layers)
 
         ff_layers = [nn.Linear(self.publ_in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_ff_layer):
+            ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            ff_layers.append(nn.ReLU())
         self.publ_net = nn.Sequential(*ff_layers)
 
         self.lstm = nn.LSTM(
@@ -101,21 +105,23 @@ class LSTMNet(torch.jit.ScriptModule):
 class ARBeliefNet(torch.jit.ScriptModule):
     __constants__ = ["in_dim", "hid_dim", "hand_size"]
 
-    def __init__(self, device, in_dim, hid_dim, hand_size, out_dim):
+    def __init__(self, device, in_dim, hid_dim, hand_size, out_dim,
+        num_ff_layer=2, num_lstm_layer=2,
+    ):
         super().__init__()
 
         self.in_dim = in_dim
         self.hid_dim = hid_dim
         self.hand_size = hand_size
         self.out_dim = out_dim
-        self.num_lstm_layer = 2
+        self.num_ff_layer = num_ff_layer
+        self.num_lstm_layer = num_lstm_layer
 
-        self.net = nn.Sequential(
-            nn.Linear(self.in_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        ff_layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_ff_layer):
+            ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            ff_layers.append(nn.ReLU())
+        self.net = nn.Sequential(*ff_layers)
         self.lstm = nn.LSTM(
             self.hid_dim,
             self.hid_dim,
@@ -274,6 +280,7 @@ if args.model is not None:
         agent.online_net.in_dim[0],
         agent.online_net.hid_dim,
         agent.online_net.out_dim,
+        agent.online_net.num_ff_layer,
         agent.online_net.num_lstm_layer,
         5,
         cfg["hide_action"],
@@ -306,6 +313,7 @@ if args.clone_model is not None:
         agent.priv_in_dim + 125,
         agent.hid_dim,
         agent.out_dim,
+        agent.num_ff_layer,
         agent.num_lstm_layer,
         5,  # cfg["hand_size"],
         False,  # cfg["hide_action"]

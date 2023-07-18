@@ -70,7 +70,8 @@ def pred_loss(logp, gtruth, seq_len):
 
 class ARBeliefModel(torch.jit.ScriptModule):
     def __init__(
-        self, device, in_dim, hid_dim, hand_size, out_dim, num_sample, fc_only
+        self, device, in_dim, hid_dim, hand_size, out_dim, num_sample, fc_only,
+        num_ff_layer=2, num_lstm_layer=2,
     ):
         """
         mode: priv: private belief prediction
@@ -86,17 +87,17 @@ class ARBeliefModel(torch.jit.ScriptModule):
         self.hand_size = hand_size
         self.hid_dim = hid_dim
         self.out_dim = out_dim
-        self.num_lstm_layer = 2
+        self.num_ff_layer = num_ff_layer
+        self.num_lstm_layer = num_lstm_layer
 
         self.num_sample = num_sample
         self.fc_only = fc_only
 
-        self.net = nn.Sequential(
-            nn.Linear(self.in_dim, self.hid_dim),
-            nn.ReLU(),
-            nn.Linear(self.hid_dim, self.hid_dim),
-            nn.ReLU(),
-        )
+        ff_layers = [nn.Linear(self.in_dim, self.hid_dim), nn.ReLU()]
+        for i in range(1, self.num_ff_layer):
+            ff_layers.append(nn.Linear(self.hid_dim, self.hid_dim))
+            ff_layers.append(nn.ReLU())
+        self.net = nn.Sequential(*ff_layers)
         self.lstm = nn.LSTM(
             self.hid_dim,
             self.hid_dim,

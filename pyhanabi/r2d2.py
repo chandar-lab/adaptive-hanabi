@@ -38,6 +38,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         hid_dim,
         out_dim,
         net,
+        num_ff_layer,
         num_lstm_layer,
         boltzmann_act,
         uniform_priority,
@@ -53,17 +54,17 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.target_net = FFWDNet(in_dim, hid_dim, out_dim).to(device)
         elif net == "publ-lstm":
             self.online_net = PublicLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer
+                device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer
             ).to(device)
             self.target_net = PublicLSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer
+                device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer
             ).to(device)
         elif net == "lstm":
             self.online_net = LSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer
+                device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer
             ).to(device)
             self.target_net = LSTMNet(
-                device, in_dim, hid_dim, out_dim, num_lstm_layer
+                device, in_dim, hid_dim, out_dim, num_ff_layer, num_lstm_layer
             ).to(device)
         elif net == "transformer":
             self.online_net = TransformerNet(
@@ -83,6 +84,7 @@ class R2D2Agent(torch.jit.ScriptModule):
         self.gamma = gamma
         self.eta = eta
         self.net = net
+        self.num_ff_layer = num_ff_layer
         self.num_lstm_layer = num_lstm_layer
         self.boltzmann = boltzmann_act
         self.uniform_priority = uniform_priority
@@ -109,6 +111,7 @@ class R2D2Agent(torch.jit.ScriptModule):
             self.online_net.hid_dim,
             self.online_net.out_dim,
             self.net,
+            self.num_ff_layer,
             self.num_lstm_layer,
             overwrite.get("boltzmann_act", self.boltzmann),
             self.uniform_priority,
