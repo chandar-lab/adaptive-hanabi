@@ -110,6 +110,9 @@ def parse_args():
     parser.add_argument("--wandb_mode", type=str, default="online")
     parser.add_argument("--wandb_log_freq", type=int, default=10)
 
+    # adaptive coop agent setting
+    parser.add_argument("--adaptive_coop_agent", type=int, default=0)
+
     args = parser.parse_args()
     assert args.method in ["iql"]
     assert args.mode in ["br", "klr"]
@@ -321,19 +324,42 @@ if __name__ == "__main__":
             overwrites={"vdn": False, "boltzmann_act": False, "sad": False},
             device=args.train_device,
         )
+
+        adapt_coop_ckpts = []
+        adapt_partners = []
+        adapt_savers = []
+        if args.adaptive_coop_agent:
+            adapt_sync_pool = futures.ThreadPoolExecutor(max_workers=1)
+            adapt_save_future, adapt_coop_future = None, None
+
+            adapt_partners = [f"{partner}_adaptive" for partner in partners]
+            for idx, coop_name in enumerate(adapt_partners):
+                adapt_coop_pth = os.path.join(args.save_dir, coop_name)
+                if not os.path.exists(adapt_coop_pth):
+                    os.makedirs(adapt_coop_pth)
+                adapt_coop_ckpts.append(common_utils.ModelCkpt(adapt_coop_pth))
+                utils.save_intermediate_model(coop_agents[idx].online_net.state_dict(), adapt_coop_ckpts[idx])
+                adapt_savers.append(common_utils.TopkSaver(adapt_coop_pth, 5))
+
+            coop_optims = [
+                torch.optim.Adam(agent_coop_i.online_net.parameters(), lr=args.lr, eps=args.eps)
+                for agent_coop_i in coop_agents
+            ]
+
     # import ipdb; ipdb.set_trace()
     eval_seed = (9917 + 0 * 999999) % 7777777
-    scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
+    scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts+adapt_coop_ckpts, eval_seed)
     wandb.log({"epoch": 0, "score": np.mean(scores),
                "perfect": np.mean(perfects) * 100,
                "num_samples": 0, "num_train": 0})
-    for partner,score,perfect in zip(partners,scores, perfects):
-        print(
-            f"partner {partner}: epoch {0}, eval score: {score:.4f},",
-            f"perfect: {(perfect*100):.2f}, model saved: {False}"
-        )
-        wandb.log({f"score-{partner}": score,
-                   f"perfect-{partner}": perfect * 100})
+    if coop_agents is not None:
+        for partner,score,perfect in zip(partners+adapt_partners,scores,perfects):
+            print(
+                f"partner {partner}: epoch {0}, eval score: {score:.4f},",
+                f"perfect: {(perfect*100):.2f}, model saved: {False}"
+            )
+            wandb.log({f"score-{partner}": score,
+                    f"perfect-{partner}": perfect * 100})
 
     act_group_args = {
         "devices": args.act_device,
@@ -450,6 +476,28 @@ if __name__ == "__main__":
             stat["grad_norm"].feed(g_norm)
             stat["boltzmann_t"].feed(batch.obs["temperature"][0].mean())
 
+            if coop_agents is not None and args.adaptive_coop_agent:
+                for idx, (agent_coop_i, optim_coop_i) in enumerate(zip(coop_agents, coop_optims)):
+                    loss_coop_i, priority_coop_i, online_q_coop_i = agent_coop_i.loss(batch, args.aux_weight, stat)
+                    loss_coop_i = (loss_coop_i * weight).mean()
+                    loss_coop_i.backward()
+                    torch.cuda.synchronize()
+                    stopwatch.time(f"forward & backward agent_coop_{idx}")
+
+                    g_norm_coop_i = torch.nn.utils.clip_grad_norm_(
+                        agent_coop_i.online_net.parameters(), args.grad_clip
+                    )
+                    optim_coop_i.step()
+                    optim_coop_i.zero_grad()
+                    torch.cuda.synchronize()
+                    stopwatch.time(f"update model agent_coop_{idx}")
+
+                    # replay_buffer.update_priority(priority_coop_i)
+                    # stopwatch.time(f"updating priority agent_coop_{idx}")
+
+                    stat[f"loss_coop_{idx}"].feed(loss_coop_i.detach().item())
+                    stat[f"grad_norm_coop_{idx}"].feed(g_norm_coop_i)
+
         count_factor = args.num_player if args.method == "vdn" else 1
         print("EPOCH: %d" % epoch)
         tachometer.lap(replay_buffer, args.epoch_len * args.batchsize, count_factor)
@@ -460,7 +508,7 @@ if __name__ == "__main__":
         eval_agent.load_state_dict(agent.state_dict())
 
         if epoch > 0 and epoch % args.wandb_log_freq == 0:
-            scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts, eval_seed)
+            scores, perfects = _evaluate_allpairs(args, eval_agent, coop_agents, coop_ckpts + adapt_coop_ckpts, eval_seed)
 
         model_saved = False
         force_save_name = None
@@ -469,18 +517,30 @@ if __name__ == "__main__":
             model_saved = saver.save(
                 None, agent.online_net.state_dict(), np.mean(scores), force_save_name=force_save_name
             )
+            if coop_agents is not None and args.adaptive_coop_agent:
+                for idx,adapt_saver in enumerate(adapt_savers):
+                    model_saved = adapt_saver.save(
+                        None, coop_agents[idx].online_net.state_dict(), np.mean(scores), force_save_name=force_save_name
+                    )
+                adapt_coop_future = adapt_sync_pool.submit(
+                    utils.update_intermediate_coop_agents, adapt_coop_ckpts, act_group,
+                    overwrites={"vdn": False, "boltzmann_act": False, "sad": False},
+                    device=args.train_device,
+                )
+            # print(f"agent.online_net.state_dict().keys(): {agent.online_net.state_dict().keys()}")
         if epoch > 0 and epoch % args.wandb_log_freq == 0:
             wandb.log({"epoch": epoch, "score": np.mean(scores),
                        "perfect": np.mean(perfects) * 100,
                        "num_samples": tachometer.num_buffer,
                        "num_train": tachometer.num_train})
-            for partner,score,perfect in zip(partners,scores,perfects):
-                print(
-                    f"partner {partner}: epoch {epoch}, eval score: {score:.4f},",
-                    f"perfect: {(perfect*100):.2f}, model saved: {model_saved}"
-                )
-                wandb.log({f"score-{partner}": score,
-                           f"perfect-{partner}": perfect * 100})
+            if coop_agents is not None:
+                for partner,score,perfect in zip(partners+adapt_partners,scores,perfects):
+                    print(
+                        f"partner {partner}: epoch {epoch}, eval score: {score:.4f},",
+                        f"perfect: {(perfect*100):.2f}, model saved: {model_saved}"
+                    )
+                    wandb.log({f"score-{partner}": score,
+                            f"perfect-{partner}": perfect * 100})
 
         if clone_bot is not None:
             score, perfect, *_ = evaluate(

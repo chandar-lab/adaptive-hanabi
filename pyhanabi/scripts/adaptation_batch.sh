@@ -2,17 +2,21 @@
 
 seeds=(101) # 102 103) # 6 7 8 9
 # pretrained learner
-agent1s=("iql-op0-lstmlayers1-seed100/model_epoch1000.pthw" "iql-op1-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_a/model0.pthw")
+# agent1s=("model_epoch1000.pthw-multitask_5partner/model_epoch400.pthw")
+agent1s=("iql-op0-lstmlayers1-seed100/model_epoch1000.pthw") # "iql-op1-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers1-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers1-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_a/model0.pthw")
 # eval partner
 # medium diversity (collas main results)
-#agent2s=("iql-op0-lstmlayers2-seed101/model_epoch1000.pthw" "iql-op1-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers2-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d/model0.pthw")
+agent2s=("iql-op0-lstmlayers2-seed101/model_epoch1000.pthw") # "iql-op1-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-op0-lstmlayers2-seed100/model_epoch1000.pthw" "vdn-op1-lstmlayers2-seed100/model_epoch1000.pthw" "icml_OBL/icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d/model0.pthw")
 # low diversity
 #agent2s=("iql-op0-lstmlayers1-seed101/model_epoch1000.pthw" "vdn-op1-lstmlayers2-seed101/model_epoch1000.pthw") # iql-op0-lstmlayers1-seed100,iql-op0-lstmlayers2-seed101,iql-op1-lstmlayers1-seed100,icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d
 # high diversity
-agent2s=("iql-op1-lstmlayers2-seed101/model_epoch1000.pthw" "icml_OBL/icml_OBL1/OFF_BELIEF1_SHUFFLE_COLOR0_BZA1_BELIEF_a/model0.pthw") # iql-op0-lstmlayers2-seed101,vdn-op1-lstmlayers1-seed100,vdn-op1-lstmlayers2-seed100,icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d
+# agent2s=("iql-op1-lstmlayers2-seed101/model_epoch1000.pthw" "icml_OBL/icml_OBL1/OFF_BELIEF1_SHUFFLE_COLOR0_BZA1_BELIEF_a/model0.pthw") # iql-op0-lstmlayers2-seed101,vdn-op1-lstmlayers1-seed100,vdn-op1-lstmlayers2-seed100,icml_OBL5/OFF_BELIEF1_SHUFFLE_COLOR0_LOAD1_BZA0_BELIEF_d
 # debug below
 # agent1s=()
 # agent2s=()
+
+# Enable coop agents to adapt
+adaptive_coop_agent=1
 
 lrs=(0.0000625) # 0.001 0.000625 0.0001  0.0000625  0.00001 0.00000625
 num_threads=(5) #10 20 40 80 160
@@ -46,6 +50,7 @@ do
       echo "export CUDNN_LIBRARY_PATH=/cvmfs/ai.mila.quebec/apps/arch/common/cudnn/10.2-v7.6/lib64/" >> temprun.sh
       echo "export OMP_NUM_THREADS=1" >> temprun.sh
 
+      # Multi-task learner: --load_model ${SCRATCH}/hanabi_exps/test_adaptation/seed101-iql-op0-lstmlayers1-seed100/${agent1} \
       echo "python ${SCRATCH}/adaptive-hanabi/pyhanabi/adapt.py \
          --save_dir ${SCRATCH}/hanabi_exps/test_adaptation/seed${seed}-${agent1}-${agent2} \
          --load_model ${SCRATCH}/hanabi_exps/test_cross_play/${agent1} \
@@ -68,6 +73,7 @@ do
          --num_player 2 \
          --num_lstm_layer 2 \
          --multi_step 3 \
+         --adaptive_coop_agent ${adaptive_coop_agent} \
          --train_device cuda:0 \
          --act_device cuda:1" >> temprun.sh
 
