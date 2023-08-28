@@ -54,7 +54,7 @@ class ModelCkpt:
 
     def get_last_version(self):
         # Small hack that deals with fixed models
-        if ".pthw" in self.prefix:
+        if self.prefix.endswith(".pthw"):
             return self.prefix
 
         while True:

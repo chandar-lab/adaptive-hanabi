@@ -11,6 +11,7 @@
 #
 import time
 import os
+import shutil
 import sys
 import argparse
 import pprint
@@ -341,6 +342,8 @@ if __name__ == "__main__":
                 utils.save_intermediate_model(coop_agents[idx].online_net.state_dict(), adapt_coop_ckpts[idx])
                 adapt_savers.append(common_utils.TopkSaver(adapt_coop_pth, 5))
 
+                coop_log = os.path.join(os.path.dirname(args.coop_agents[idx]), "train.log")
+                shutil.copy(coop_log, adapt_coop_pth)
             coop_optims = [
                 torch.optim.Adam(agent_coop_i.online_net.parameters(), lr=args.lr, eps=args.eps)
                 for agent_coop_i in coop_agents
