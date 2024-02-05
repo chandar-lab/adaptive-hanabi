@@ -69,6 +69,7 @@ default_policy_config = {
     "act_device": "cuda:1",
     "shuffle_color": 0,
     "aux_weight": 0.25,
+    "num_ff_layer": 1,
     "num_lstm_layer": 2,
     "hide_action": 0,
     "boltzmann_act": 0,

@@ -199,6 +199,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--net", type=str, default="lstm")
     parser.add_argument("--rnn_hid_size", type=int, default=512)
+    parser.add_argument("--ff_layers", type=int, default=1)
     parser.add_argument("--lstm_layers", type=int, default=1)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--load_ckpt", type=str, default=None)
@@ -257,6 +258,7 @@ if __name__ == "__main__":
             publ_in_dim,
             args.rnn_hid_size,
             num_action,
+            args.ff_layers,
             args.lstm_layers,
             args.net,
             args.dropout,
@@ -273,6 +275,7 @@ if __name__ == "__main__":
             args.rnn_hid_size,
             num_action,
             args.net,
+            args.ff_layers,
             args.lstm_layers,
             False,  # args.boltzmann_act,
             True,  # uniform priority
