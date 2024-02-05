@@ -3,7 +3,7 @@
 ## Introduction
 
 This repo contains the implementation of the benchmark described
-in [...]().
+in our paper [Towards Few-shot Coordination: Revisiting Ad-hoc Teamplay Challenge In the Game of Hanabi]    (https://proceedings.mlr.press/v232/nekoei23b.html).
 
 The codebase is mostly based on [off-belief-learning](https://github.com/facebookresearch/off-belief-learning) repo. 
 
