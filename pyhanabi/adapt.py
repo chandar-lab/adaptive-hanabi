@@ -131,15 +131,6 @@ def _evaluate(args, eval_agent, coop_agents, coop_ckpts, eval_seed):
         for idx in eval_idxs:
             eval_agents.append(coop_eval_agents[idx])
 
-    # for i, j in zip(eval_agents[0].state_dict().items(), eval_agents[1].state_dict().items()):
-    #     if i[0] == j[0]:
-    #         if torch.sum(i[1].detach().cpu() - j[1].detach().cpu()).item() != 0:
-    #             print(i)
-    #             print(j)
-    #     else:
-    #         print(i)
-    #         print(j)
-
     score, perfect, *_ = evaluate(
         eval_agents,
         1000,
